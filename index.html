@@ -77,8 +77,15 @@ function post(datos) {
     method: "POST", redirect: "follow",
     headers: { "Content-Type": "text/plain;charset=utf-8" },   // sin «preflight»: Apps Script no lo admite
     body: JSON.stringify(datos)
-  }).then(r => r.text(), () => { throw new Error(SIN_CONEXION); })
-    .then(t => { try { return JSON.parse(t); } catch (e) { throw new Error(SIN_CONEXION); } });
+  }).then(r => r.text().then(t => ({ st: r.status, t: t })), e => { console.error("Escenika · fetch:", e); throw new Error(SIN_CONEXION + " (sin respuesta del servidor)"); })
+    .then(x => {
+      try { return JSON.parse(x.t); }
+      catch (e) {
+        console.error("Escenika · respuesta no válida", x.st, x.t.slice(0, 500));
+        const pista = (x.t.match(/<title>([^<]*)<\/title>/i) || [])[1] || x.t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
+        throw new Error(SIN_CONEXION + " (respuesta " + x.st + (pista ? ": " + pista : "") + ")");
+      }
+    });
 }
 // Si Google no deja hablar con el panel (sin conexión, o una versión nueva sin autorizar), se explica así:
 const SIN_CONEXION = "No se ha podido conectar con el panel. Comprueba tu conexión y vuelve a intentarlo. " +
