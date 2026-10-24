@@ -175,10 +175,12 @@ function otraCuenta() {
   try { google.accounts.id.disableAutoSelect(); } catch (e) {}
   location.reload();
 }
-function salir() {
+function salir(token) {
   try { google.accounts.id.disableAutoSelect(); } catch (e) {}
   localStorage.setItem("escenika_salio", "1");
-  location.href = location.pathname;
+  const fuera = () => { location.href = location.pathname; };
+  // La sesión se cierra también en el servidor
+  if (token) post({ tipo: "run", fn: "cerrarSesionPanel", args: [token] }).then(fuera, fuera); else fuera();
 }
 
 window.__eskIniciar = iniciarGoogle;
