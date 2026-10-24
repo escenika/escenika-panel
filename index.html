@@ -34,6 +34,8 @@
   .tarjeta{width:100%;max-width:400px;background:#fff;border-radius:24px;padding:30px 24px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45);text-align:center}
   .logo{font-weight:800;font-size:38px;letter-spacing:.5px;color:#100C0A;line-height:1}
   .logo b{color:#C8102E}
+  .marca{background:#100C0A;border-radius:16px;padding:18px 16px;margin-bottom:4px}
+  .marca img{display:block;max-width:220px;width:100%;height:auto;margin:0 auto}
   .lema{color:#6b6f7b;font-size:13px;margin-top:6px}
   h1{font-size:19px;margin:26px 0 6px}
   p{color:#555;font-size:14px;margin:0 0 18px}
@@ -52,7 +54,7 @@
 <body>
 <div class="fondo" id="pantalla">
   <div class="tarjeta">
-    <div class="logo">escen<b>ika</b></div>
+    <div class="logo" id="logo">escen<b>ika</b></div>
     <div class="lema">Historias que importan · Garrantzia duten istorioak</div>
     <div id="caja">
       <h1>Panel de gestión</h1>
@@ -79,6 +81,19 @@ function post(datos) {
     body: JSON.stringify(datos)
   }).then(r => r.json());
 }
+/* Logo de Escenika (el elegido para la newsletter). Se recuerda para que salga al instante la próxima vez. */
+function ponerLogo(url) {
+  if (!url) return;
+  const img = new Image();
+  img.onload = () => { const l = $("logo"); l.className = "marca"; l.innerHTML = ""; img.alt = "Escenika"; l.appendChild(img); };
+  img.src = url;
+}
+try { ponerLogo(localStorage.getItem("escenika_logo")); } catch (e) {}
+post({ tipo: "marca" }).then(r => {
+  if (!r || !r.ok) return;
+  try { if (r.logo) localStorage.setItem("escenika_logo", r.logo); else localStorage.removeItem("escenika_logo"); } catch (e) {}
+  ponerLogo(r.logo);
+}).catch(() => {});
 function estado(t, error) { const e = $("estado"); e.innerHTML = t; e.className = "estado" + (error ? " error" : ""); }
 
 // Sustituto de google.script.run para las páginas de Apps Script mostradas aquí
