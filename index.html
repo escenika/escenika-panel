@@ -56,7 +56,7 @@
     <div class="lema">Historias que importan · Garrantzia duten istorioak</div>
     <div id="caja">
       <h1>Panel de gestión</h1>
-      <p>Entra con tu cuenta de Google. Solo pueden entrar las personas a las que administración ha dado acceso.</p>
+      <p>Entra con tu cuenta de Google. Para el equipo de Escenika y para participantes con la ficha completa.</p>
       <div id="boton"></div>
       <div class="estado" id="estado"><span class="giro"></span>Cargando…</div>
     </div>
@@ -157,6 +157,7 @@ function alEntrar(resp) {
     if (r.sinAcceso) {
       $("caja").innerHTML = `<h1>Sin acceso todavía</h1>
         <div class="aviso">La cuenta <b>${r.correo.replace(/</g, "&lt;")}</b> no tiene acceso al panel.</div>
+        <p>🎭 <b>¿Participas en Escenika?</b> Entra con la misma cuenta que pusiste en tu ficha de participante. Si aún no la has rellenado, pide el enlace a producción.</p>
         <button class="btn p" onclick="__eskPedir()">Pedir acceso a administración</button>
         <button class="btn s" onclick="__eskOtra()">Entrar con otra cuenta</button>
         <div class="estado" id="estado"></div>`;
