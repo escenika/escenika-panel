@@ -77,8 +77,12 @@ function post(datos) {
     method: "POST", redirect: "follow",
     headers: { "Content-Type": "text/plain;charset=utf-8" },   // sin «preflight»: Apps Script no lo admite
     body: JSON.stringify(datos)
-  }).then(r => r.json());
+  }).then(r => r.text(), () => { throw new Error(SIN_CONEXION); })
+    .then(t => { try { return JSON.parse(t); } catch (e) { throw new Error(SIN_CONEXION); } });
 }
+// Si Google no deja hablar con el panel (sin conexión, o una versión nueva sin autorizar), se explica así:
+const SIN_CONEXION = "No se ha podido conectar con el panel. Comprueba tu conexión y vuelve a intentarlo. " +
+  "Si sigue pasando, avisa a administración: puede que la versión nueva del panel necesite que se autoricen sus permisos en el editor de Apps Script.";
 try { localStorage.removeItem("escenika_logo"); } catch (e) {}
 function estado(t, error) { const e = $("estado"); e.innerHTML = t; e.className = "estado" + (error ? " error" : ""); }
 
@@ -87,7 +91,7 @@ function instalarPuente() {
   window.google = window.google || {};
   const llamar = (fn, args) => post({ tipo: "run", fn: fn, args: args }).then(r => {
     if (!r.ok) {
-      if (sesionGoogle && /ya no es válido|desactivado/i.test(r.error || "") && !sessionStorage.getItem("escenika_reentrando")) {
+      if (sesionGoogle && /ya no es válido|desactivado|caducado|se ha cerrado/i.test(r.error || "") && !sessionStorage.getItem("escenika_reentrando")) {
         sessionStorage.setItem("escenika_reentrando", "1"); location.reload();   // la sesión ha caducado: se vuelve a entrar sola
       }
       throw new Error(r.error || "Error");
