@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#100C0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Escenika">
+<meta name="robots" content="noindex">
+<title>Escenika · Panel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23100C0A'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' font-family='Arial' font-weight='bold' fill='%23C8102E'%3Ee%3C/text%3E%3C/svg%3E">
+<!--
+  🎭 PÁGINA DE ENTRADA AL PANEL DE ESCENIKA (panel.escenikamicroteatro.com)
+  ─────────────────────────────────────────────────────────────────────────
+  Este archivo NO va en Apps Script: se sube a tu dominio (GitHub Pages, tu hosting…)
+  con el nombre index.html. Ver la guía «Entrar con Google» para los pasos.
+
+  Rellena estos dos datos:
+-->
+<script>
+  var ESCENIKA_CONFIG = {
+    // 1) ID de cliente de Google (el mismo que pones en Panel.gs › PANEL_LOGIN.clientId)
+    clientId: "PEGA_AQUI_TU_ID_DE_CLIENTE.apps.googleusercontent.com",
+    // 2) URL de la Web App de Apps Script (Implementar › Gestionar implementaciones › la URL que acaba en /exec)
+    api: "https://script.google.com/macros/s/PEGA_AQUI_EL_ID/exec"
+  };
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="window.__eskIniciar && window.__eskIniciar()"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#1d1d1f;background:#100C0A}
+  .fondo{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;
+         background:radial-gradient(circle at 85% 10%,rgba(200,16,46,.45),transparent 45%),radial-gradient(circle at 10% 90%,rgba(226,118,0,.25),transparent 40%),#100C0A}
+  .tarjeta{width:100%;max-width:400px;background:#fff;border-radius:24px;padding:30px 24px 24px;box-shadow:0 20px 60px rgba(0,0,0,.45);text-align:center}
+  .logo{font-weight:800;font-size:38px;letter-spacing:.5px;color:#100C0A;line-height:1}
+  .logo b{color:#C8102E}
+  .lema{color:#6b6f7b;font-size:13px;margin-top:6px}
+  h1{font-size:19px;margin:26px 0 6px}
+  p{color:#555;font-size:14px;margin:0 0 18px}
+  #boton{display:flex;justify-content:center;min-height:44px}
+  .estado{margin-top:16px;font-size:14px;color:#555;min-height:20px}
+  .estado.error{color:#a3201d}
+  .aviso{background:#fff6d6;color:#7a5d00;border-radius:12px;padding:12px;font-size:14px;margin-top:16px;text-align:left}
+  .btn{display:block;width:100%;border:0;border-radius:12px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-top:10px}
+  .btn.p{background:#100C0A;color:#fff} .btn.s{background:#eef0f4;color:#1d1d1f}
+  .pie{color:#9a9da6;font-size:12px;margin-top:22px}
+  .giro{display:inline-block;width:18px;height:18px;border:3px solid #e3e5ea;border-top-color:#C8102E;border-radius:50%;animation:g 1s linear infinite;vertical-align:-4px;margin-right:6px}
+  @keyframes g{to{transform:rotate(360deg)}}
+  .oculto{display:none}
+</style>
+</head>
+<body>
+<div class="fondo" id="pantalla">
+  <div class="tarjeta">
+    <div class="logo">escen<b>ika</b></div>
+    <div class="lema">Historias que importan · Garrantzia duten istorioak</div>
+    <div id="caja">
+      <h1>Panel de gestión</h1>
+      <p>Entra con tu cuenta de Google. Solo pueden entrar las personas a las que administración ha dado acceso.</p>
+      <div id="boton"></div>
+      <div class="estado" id="estado"><span class="giro"></span>Cargando…</div>
+    </div>
+    <div class="pie">🔒 Tu sesión es privada · escenikamicroteatro.com</div>
+  </div>
+</div>
+
+<script>
+/* Todo va dentro de una función: las páginas de Apps Script que se muestran después
+   comparten la misma ventana y no deben chocar con nombres de aquí. */
+(function () {
+const CLIENT_ID = ESCENIKA_CONFIG.clientId, API_URL = ESCENIKA_CONFIG.api;
+const $ = id => document.getElementById(id);
+let credencial = null, sesionGoogle = false;
+
+function post(datos) {
+  return fetch(API_URL, {
+    method: "POST", redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },   // sin «preflight»: Apps Script no lo admite
+    body: JSON.stringify(datos)
+  }).then(r => r.json());
+}
+function estado(t, error) { const e = $("estado"); e.innerHTML = t; e.className = "estado" + (error ? " error" : ""); }
+
+// Sustituto de google.script.run para las páginas de Apps Script mostradas aquí
+function instalarPuente() {
+  window.google = window.google || {};
+  const llamar = (fn, args) => post({ tipo: "run", fn: fn, args: args }).then(r => {
+    if (!r.ok) {
+      if (sesionGoogle && /ya no es válido|desactivado/i.test(r.error || "") && !sessionStorage.getItem("escenika_reentrando")) {
+        sessionStorage.setItem("escenika_reentrando", "1"); location.reload();   // la sesión ha caducado: se vuelve a entrar sola
+      }
+      throw new Error(r.error || "Error");
+    }
+    sessionStorage.removeItem("escenika_reentrando");
+    return r.r;
+  });
+  const nuevo = () => {
+    let ok = () => {}, ko = e => console.error(e), usuario;
+    const base = {
+      withSuccessHandler(f) { ok = f; return px; }, withFailureHandler(f) { ko = f; return px; }, withUserObject(u) { usuario = u; return px; }
+    };
+    const px = new Proxy(base, { get(t, k) {
+      if (k in t) return t[k];
+      return (...args) => { llamar(String(k), args).then(x => ok(x, usuario), e => ko(e, usuario)); };
+    } });
+    return px;
+  };
+  const script = { host: { close() {}, setHeight() {}, setWidth() {}, origin: location.origin } };
+  Object.defineProperty(script, "run", { get: nuevo });
+  window.google.script = script;
+  window.__salir = salir;
+}
+
+// Muestra una página que viene de Apps Script (el panel o una página pública)
+function mostrar(html, titulo) {
+  instalarPuente();
+  const meta = '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta name="theme-color" content="#100C0A">';
+  html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + meta) : meta + html;
+  document.open(); document.write(html); document.close();
+  if (titulo) document.title = titulo;
+}
+
+/* ========================================================================
+   Páginas públicas (calendario, ficha de participante, baja…): sin login
+   ======================================================================== */
+const params = Object.fromEntries(new URLSearchParams(location.search));
+const esPublica = params.accion && params.accion !== "entrar";
+if (esPublica) {
+  $("caja").innerHTML = '<div class="estado"><span class="giro"></span>Cargando…</div>';
+  post({ tipo: "pagina", p: params })
+    .then(r => r.ok ? mostrar(r.html, r.titulo) : ($("caja").innerHTML = '<div class="aviso">⚠️ ' + (r.error || "No se pudo abrir la página.") + '</div>'))
+    .catch(() => { $("caja").innerHTML = '<div class="aviso">⚠️ No hay conexión con el servidor. Vuelve a intentarlo.</div>'; });
+}
+
+/* ========================================================================
+   Entrar con Google
+   ======================================================================== */
+let iniciado = false;
+function iniciarGoogle() {
+  if (esPublica || iniciado) return;
+  iniciado = true;
+  if (!window.google || !google.accounts) return estado("No se ha podido cargar Google. Revisa la conexión.", true);
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID, callback: alEntrar, auto_select: !localStorage.getItem("escenika_salio"),
+    cancel_on_tap_outside: false, use_fedcm_for_prompt: true, itp_support: true
+  });
+  google.accounts.id.renderButton($("boton"), { theme: "filled_black", size: "large", shape: "pill", text: "signin_with", locale: "es", width: 280 });
+  estado("");
+  if (!localStorage.getItem("escenika_salio")) google.accounts.id.prompt();
+}
+function alEntrar(resp) {
+  credencial = resp.credential;
+  localStorage.removeItem("escenika_salio");
+  estado('<span class="giro"></span>Entrando…');
+  post({ tipo: "entrar", idToken: credencial }).then(r => {
+    if (r.ok) { sesionGoogle = true; mostrar(r.html, "Escenika · Panel"); return; }
+    if (r.sinAcceso) {
+      $("caja").innerHTML = `<h1>Sin acceso todavía</h1>
+        <div class="aviso">La cuenta <b>${r.correo.replace(/</g, "&lt;")}</b> no tiene acceso al panel.</div>
+        <button class="btn p" onclick="__eskPedir()">Pedir acceso a administración</button>
+        <button class="btn s" onclick="__eskOtra()">Entrar con otra cuenta</button>
+        <div class="estado" id="estado"></div>`;
+      return;
+    }
+    estado("⚠️ " + (r.error || "No se ha podido entrar."), true);
+  }).catch(() => estado("⚠️ No hay conexión con el servidor. Vuelve a intentarlo.", true));
+}
+function pedirAcceso() {
+  estado('<span class="giro"></span>Enviando…');
+  post({ tipo: "solicitar", idToken: credencial }).then(r => estado(r.ok ? r.mensaje : "⚠️ " + r.error, !r.ok));
+}
+function otraCuenta() {
+  try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+  location.reload();
+}
+function salir() {
+  try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+  localStorage.setItem("escenika_salio", "1");
+  location.href = location.pathname;
+}
+
+window.__eskIniciar = iniciarGoogle;
+window.__eskPedir = pedirAcceso;
+window.__eskOtra = otraCuenta;
+if (window.google && google.accounts) iniciarGoogle();   // por si Google ya había cargado
+})();
+</script>
+</body>
+</html>
