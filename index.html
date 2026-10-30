@@ -104,7 +104,7 @@ function instalarPuente() {
   const llamar = (fn, args) => post({ tipo: "run", fn: fn, args: args }).then(r => {
     if (!r.ok) {
       if (sesionGoogle && /ya no es válido|desactivado|caducado|se ha cerrado/i.test(r.error || "") && !sessionStorage.getItem("escenika_reentrando")) {
-        sessionStorage.setItem("escenika_reentrando", "1"); location.reload();   // la sesión ha caducado: se vuelve a entrar sola
+        sessionStorage.setItem("escenika_reentrando", "1"); sessionStorage.removeItem("escenika_ses"); location.reload();   // la sesión ha caducado: se vuelve a entrar sola
       }
       throw new Error(r.error || "Error");
     }
@@ -154,8 +154,24 @@ if (esPublica) {
    Entrar con Google
    ======================================================================== */
 let iniciado = false;
+// Al actualizar la página: si esta pestaña ya tenía la sesión abierta, se vuelve al panel directamente (sin pasar por Google)
+let reanudando = false;
+(function reanudar() {
+  if (esPublica) return;
+  let ses = "";
+  try { ses = sessionStorage.getItem("escenika_ses") || ""; } catch (e) {}
+  if (!ses) return;
+  reanudando = true;
+  estado('<span class="giro"></span>Cargando…');
+  const aGoogle = () => {
+    try { sessionStorage.removeItem("escenika_ses"); } catch (e) {}
+    reanudando = false;
+    if (window.google && google.accounts) iniciarGoogle();   // si Google aún no ha cargado, se inicia solo al cargar
+  };
+  post({ tipo: "reanudar", token: ses }).then(r => { if (r.ok) { sesionGoogle = true; mostrar(r.html, "Escenika · Panel"); } else aGoogle(); }, aGoogle);
+})();
 function iniciarGoogle() {
-  if (esPublica || iniciado) return;
+  if (esPublica || iniciado || reanudando) return;
   iniciado = true;
   if (!window.google || !google.accounts) return estado("No se ha podido cargar Google. Revisa la conexión.", true);
   google.accounts.id.initialize({
@@ -195,6 +211,7 @@ function otraCuenta() {
 function salir(token) {
   try { google.accounts.id.disableAutoSelect(); } catch (e) {}
   localStorage.setItem("escenika_salio", "1");
+  try { sessionStorage.removeItem("escenika_ses"); sessionStorage.removeItem("escenika_pos"); } catch (e) {}
   const fuera = () => { location.href = location.pathname; };
   // La sesión se cierra también en el servidor
   if (token) post({ tipo: "run", fn: "cerrarSesionPanel", args: [token] }).then(fuera, fuera); else fuera();
