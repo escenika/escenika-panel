@@ -187,7 +187,11 @@ function alEntrar(resp) {
   localStorage.removeItem("escenika_salio");
   estado('<span class="giro"></span>Entrando…');
   post({ tipo: "entrar", idToken: credencial }).then(r => {
-    if (r.ok) { sesionGoogle = true; mostrar(r.html, "Escenika · Panel"); return; }
+    if (r.ok) {
+      sesionGoogle = true;
+      try { if (r.token) sessionStorage.setItem("escenika_ses", r.token); } catch (e) {}   // para volver al panel al actualizar la página
+      mostrar(r.html, "Escenika · Panel"); return;
+    }
     if (r.sinAcceso) {
       $("caja").innerHTML = `<h1>Sin acceso todavía</h1>
         <div class="aviso">La cuenta <b>${r.correo.replace(/</g, "&lt;")}</b> no tiene acceso al panel.</div>
