@@ -143,6 +143,12 @@ function mostrar(html, titulo) {
    ======================================================================== */
 const params = Object.fromEntries(new URLSearchParams(location.search));
 const esPublica = params.accion && params.accion !== "entrar";
+// Enlaces de los correos (?ir=portal/turnos): al entrar se abre directamente esa pantalla del panel
+if (!esPublica && /^[a-z]+(\/[a-z]+)?$/.test(params.ir || "")) {
+  const [irM, irV] = params.ir.split("/");
+  try { sessionStorage.setItem("escenika_pos", JSON.stringify({ m: irM, v: irV || "" })); } catch (e) {}
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+}
 if (esPublica) {
   $("caja").innerHTML = '<div class="estado"><span class="giro"></span>Cargando…</div>';
   post({ tipo: "pagina", p: params })
