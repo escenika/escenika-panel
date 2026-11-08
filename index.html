@@ -51,6 +51,13 @@
   .giro{display:inline-block;width:18px;height:18px;border:3px solid #e3e5ea;border-top-color:#C8102E;border-radius:50%;animation:g 1s linear infinite;vertical-align:-4px;margin-right:6px}
   @keyframes g{to{transform:rotate(360deg)}}
   .oculto{display:none}
+  /* ✉️ Entrar con el correo (sin cuenta de Google) */
+  .campo{display:block;width:100%;border:1px solid #d8dbe2;border-radius:12px;padding:12px;font:inherit;font-size:16px;margin-top:10px;text-align:left;background:#fff;color:#1d1d1f}
+  .campo:focus{outline:2px solid #100C0A;outline-offset:1px;border-color:#100C0A}
+  .campo.codigo{text-align:center;font-size:24px;letter-spacing:8px;font-weight:700}
+  .enlace{background:none;border:0;color:#1d1d1f;text-decoration:underline;text-underline-offset:3px;font:inherit;font-size:14px;cursor:pointer;margin-top:14px;padding:6px}
+  .nota{font-size:13px;color:#666;margin-top:8px;text-align:left}
+  label.t{display:block;text-align:left;font-size:13px;font-weight:700;color:#444;margin-top:14px}
 </style>
 </head>
 <body>
@@ -62,6 +69,7 @@
       <h1>Entra en Escenika</h1>
       <p>Con tu cuenta de Google.</p>
       <div id="boton"></div>
+      <button class="enlace" type="button" onclick="__eskCorreo()">¿No tienes Gmail? Entra con tu correo</button>
       <div class="estado" id="estado"><span class="giro"></span>Cargando…</div>
       <div class="elenco">🎭 <b>¿Eres del elenco?</b> Entra con el correo que pusiste en tu ficha de participante y verás <b>Mi Escenika</b>: tus ensayos, las funciones, los mensajes y los avisos.</div>
     </div>
@@ -204,6 +212,7 @@ function alEntrar(resp) {
         <p>🎭 <b>¿Participas en Escenika?</b> Entra con la misma cuenta que pusiste en tu ficha de participante. Si aún no la has rellenado, pide el enlace a producción.</p>
         <button class="btn p" onclick="__eskPedir()">Pedir acceso a administración</button>
         <button class="btn s" onclick="__eskOtra()">Entrar con otra cuenta</button>
+        <button class="enlace" type="button" onclick="__eskCorreo()">Entrar con mi correo (sin Google)</button>
         <div class="estado" id="estado"></div>`;
       return;
     }
@@ -226,6 +235,71 @@ function salir(token) {
   // La sesión se cierra también en el servidor
   if (token) post({ tipo: "run", fn: "cerrarSesionPanel", args: [token] }).then(fuera, fuera); else fuera();
 }
+
+/* ========================================================================
+   ✉️ Entrar con el correo (Yahoo, Hotmail…): contraseña o código por correo
+   ======================================================================== */
+const escH = t => String(t || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+let correoAcc = "";
+function entrarHecho(r) {
+  if (!r.ok) return estado("⚠️ " + (r.error || "No se ha podido entrar."), true);
+  try { if (r.token) sessionStorage.setItem("escenika_ses", r.token); } catch (e) {}
+  mostrar(r.html, "Escenika · Panel");
+}
+function pantallaCorreo() {
+  $("caja").innerHTML = `<h1>Entra con tu correo</h1>
+    <p>Para quien no tiene cuenta de Google (Yahoo, Hotmail…).</p>
+    <form onsubmit="event.preventDefault();__eskClave()">
+      <label class="t" for="accC">Correo</label><input class="campo" type="email" id="accC" autocomplete="username" value="${escH(correoAcc)}" required>
+      <label class="t" for="accK">Contraseña</label><input class="campo" type="password" id="accK" autocomplete="current-password">
+      <button class="btn p" type="submit">Entrar</button>
+    </form>
+    <button class="btn s" type="button" onclick="__eskCodigo()">Enviarme un código por correo</button>
+    <div class="nota">¿Es la primera vez o has olvidado tu contraseña? Pide un código: al entrar podrás crearla.</div>
+    <div class="estado" id="estado"></div>
+    <button class="enlace" type="button" onclick="__eskOtra()">← Entrar con Google</button>`;
+  setTimeout(() => $(correoAcc ? "accK" : "accC").focus(), 50);
+}
+function entrarClave() {
+  correoAcc = $("accC").value.trim();
+  if (!correoAcc) return estado("Escribe tu correo.", true);
+  if (!$("accK").value) return estado("Escribe tu contraseña o pide un código.", true);
+  estado('<span class="giro"></span>Entrando…');
+  post({ tipo: "entrarClave", correo: correoAcc, clave: $("accK").value }).then(entrarHecho, e => estado("⚠️ " + e.message, true));
+}
+function pedirCodigo() {
+  const c = $("accC") ? $("accC").value.trim() : correoAcc;
+  if (!c) return estado("Escribe tu correo.", true);
+  correoAcc = c;
+  estado('<span class="giro"></span>Enviando el código…');
+  post({ tipo: "codigo", correo: correoAcc }).then(r => {
+    if (!r.ok) return estado("⚠️ " + r.error, true);
+    $("caja").innerHTML = `<h1>Escribe el código</h1>
+      <p>${escH(r.mensaje)}</p>
+      <form onsubmit="event.preventDefault();__eskEntrarCodigo()">
+        <label class="t" for="accN">Código de 6 cifras</label>
+        <input class="campo codigo" id="accN" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" required>
+        <label class="t" for="accP">Crea una contraseña para la próxima vez <span style="font-weight:400">(opcional, mínimo 8 caracteres)</span></label>
+        <input class="campo" type="password" id="accP" autocomplete="new-password" minlength="8">
+        <button class="btn p" type="submit">Entrar</button>
+      </form>
+      <button class="btn s" type="button" onclick="__eskCodigo()">Enviarme otro código</button>
+      <div class="estado" id="estado"></div>
+      <button class="enlace" type="button" onclick="__eskCorreo()">← Volver</button>`;
+    setTimeout(() => $("accN").focus(), 50);
+  }, e => estado("⚠️ " + e.message, true));
+}
+function entrarCodigo() {
+  const cod = $("accN").value.replace(/\D/g, ""), nueva = $("accP").value;
+  if (cod.length !== 6) return estado("El código tiene 6 cifras.", true);
+  if (nueva && nueva.length < 8) return estado("La contraseña tiene que tener al menos 8 caracteres (o déjala en blanco).", true);
+  estado('<span class="giro"></span>Entrando…');
+  post({ tipo: "entrarCodigo", correo: correoAcc, codigo: cod, nueva: nueva }).then(entrarHecho, e => estado("⚠️ " + e.message, true));
+}
+window.__eskCorreo = pantallaCorreo;
+window.__eskClave = entrarClave;
+window.__eskCodigo = pedirCodigo;
+window.__eskEntrarCodigo = entrarCodigo;
 
 window.__eskIniciar = iniciarGoogle;
 window.__eskPedir = pedirAcceso;
